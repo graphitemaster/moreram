@@ -1,7 +1,7 @@
 # More Ram
 
 More Ram is a system-wide malloc replacement which allows you to gain up
-to an additional 4GB of system RAM.
+to an additional 12GB of system RAM.
 
 To use:
 ```
@@ -17,7 +17,7 @@ you can open a couple more tabs in Firefox
 # Technical description and difficulties
 
 By taking advantage of persistently mapped buffers in OpenGL, we can exploit
-up to an additional 4GB of memory for system tasks.
+up to an additional 12GB of memory for system tasks.
 
 There is no guarantee that the persistently mapped buffer technique actually
 references video memory. The worst case it's shadow memory and this actually
