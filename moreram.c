@@ -104,6 +104,8 @@ static void moreram_ctor(void) {
 
 	/* Set all those bits to zero */
 	memset(gContext.bitset, 0, BITSET);
+
+	SDL_AtomicIncRef(&gContext.instances);
 }
 
 __attribute__((destructor))
