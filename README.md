@@ -29,7 +29,6 @@ best is a modern NV graphic card.
 # TODO
 
 * Try AMD_pinned_memory for AMD GPUs
-* realloc, memalign, calloc
 
 # Dependencies
 Unfortunately for this to work you need a working X server as a GL context
