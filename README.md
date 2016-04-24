@@ -25,7 +25,7 @@ wastes memory.
 
 This will work on embedded better than it will on Desktops, where persistently
 mapped buffers actually do reference video memory. As for desktop, your best
-best is a modern NV graphic card or an AMD GPU which supports GL_AMD_pinned_memory.
+bet is a modern NV graphic card or an AMD GPU which supports GL_AMD_pinned_memory.
 
 The logic for using GPU memory is only triggered when malloc/calloc/realloc
 fail. On systems with overcommit, this will never be the case. To make
