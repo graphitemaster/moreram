@@ -31,6 +31,8 @@ The logic for using GPU memory is only triggered when malloc/calloc/realloc
 fail. On systems with overcommit, this will never be the case. To make
 use of this overcommit *must be disabled*
 
+Oh yeah, and it's thread safe!
+
 # TODO
 
 * Try AMD_pinned_memory for AMD GPUs
