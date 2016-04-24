@@ -9,6 +9,7 @@
 
 static void *(*libc_malloc)(size_t);
 static void *(*libc_realloc)(void *, size_t);
+static void *(*libc_calloc)(size_t, size_t);
 static void (*libc_free)(void *);
 
 static GLenum (*pglGetError)();
@@ -52,6 +53,7 @@ static void moreram_ctor(void) {
 
 	*(void **)&libc_malloc = dlsym(RTLD_NEXT, "malloc");
 	*(void **)&libc_realloc = dlsym(RTLD_NEXT, "realloc");
+	*(void **)&libc_calloc = dlsym(RTLD_NEXT, "calloc");
 	*(void **)&libc_free = dlsym(RTLD_NEXT, "free");
 
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -304,4 +306,13 @@ void *realloc(void *address, size_t size) {
 
 	/* Not part of the GL heap so forward to libc's realloc */
 	return libc_realloc(address, size);
+}
+
+void *calloc(size_t m, size_t n) {
+	if (n && m > (size_t)-1/n) {
+		errno = ENOMEM;
+		return 0;
+	}
+	void *attempt = libc_calloc(m, n);
+	return attempt ? attempt : memset(malloc(m*n), 0, m*n);
 }
