@@ -52,13 +52,8 @@ static struct {
 
 __attribute__((constructor))
 static void moreram_ctor(void) {
-	if (gContext.lock)
-		SDL_LockMutex(gContext.lock);
-	/* Prevent initializing if already in the address space */
-	if (SDL_AtomicGet(&gContext.instances) != 0) {
-		/* An additional instance */
-		SDL_AtomicIncRef(&gContext.instances);
-		SDL_UnlockMutex(gContext.lock);
+	if (SDL_AtomicCAS(&gContext.instances, 0, 1) != 0) {
+		/* Prevent initializing it more than once */
 		return;
 	}
 
