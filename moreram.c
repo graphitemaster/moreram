@@ -8,6 +8,7 @@
 #include <SDL_mutex.h>
 
 static void *(*libc_malloc)(size_t);
+static void *(*libc_realloc)(void *, size_t);
 static void (*libc_free)(void *);
 
 static GLenum (*pglGetError)();
@@ -20,6 +21,7 @@ static GLboolean (*pglUnmapBuffer)(GLenum);
 
 struct node {
 	void *address;
+	size_t size;
 	size_t bit;
 	struct node *next;
 	struct node *prev;
@@ -49,6 +51,7 @@ static void moreram_ctor(void) {
 	}
 
 	*(void **)&libc_malloc = dlsym(RTLD_NEXT, "malloc");
+	*(void **)&libc_realloc = dlsym(RTLD_NEXT, "realloc");
 	*(void **)&libc_free = dlsym(RTLD_NEXT, "free");
 
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -177,6 +180,7 @@ void *malloc(size_t bytes) {
 		return NULL;
 	}
 
+	node->size = bytes - sizeof(struct node);
 	node->address = node + 1;
 	node->bit = bit;
 
@@ -242,4 +246,62 @@ void free(void *address) {
 	SDL_UnlockMutex(gContext.lock);
 	/* Not part of the GL heap so forward to libc's free */
 	libc_free(address);
+}
+
+void *realloc(void *address, size_t size) {
+	/* Walk the entire GL heap to see if this pointer exists in there */
+	SDL_LockMutex(gContext.lock);
+	for (struct node *n = gContext.head; n; n = n->next) {
+		if (n->address != address)
+			continue;
+
+		/* Requests some memory for the resize */
+		SDL_UnlockMutex(gContext.lock);
+		void *resize = malloc(size);
+		if (!resize)
+			return NULL;
+		SDL_LockMutex(gContext.lock);
+
+		/* Bind the current handle before unlinking it */
+		pglBindBuffer(GL_ARRAY_BUFFER, gContext.handles[n->bit]);
+
+		/* Unlink it from the linked list */
+		if (n == gContext.head && n == gContext.tail) {
+			gContext.head = NULL;
+			gContext.tail = NULL;
+		} else if (n == gContext.head) {
+			gContext.head = n->next;
+			gContext.head->prev = NULL;
+		} else if (n == gContext.tail) {
+			gContext.tail = n->prev;
+			gContext.tail->next = NULL;
+		} else {
+			struct node *next = n->next;
+			struct node *prev = n->prev;
+			next->prev = prev;
+			prev->next = next;
+		}
+
+		/* Mark the memory as being available again in the bitset */
+		gContext.bitset[n->bit / 8] &= ~(1 << (n->bit % 8));
+
+		/* Copy the memory into the resize */
+		memcpy(resize, address, n->size);
+
+		/* The linked list structure is maintained by the memory obtained
+		 * from GL. To prevent the compiler from reordering the read of
+		 * n->bit above below this unmap call we use a compiler barrier
+		 * here. */
+		SDL_CompilerBarrier();
+
+		/* Unmap the memory it references */
+		pglUnmapBuffer(GL_ARRAY_BUFFER);
+
+		SDL_UnlockMutex(gContext.lock);
+		return resize;
+	}
+	SDL_UnlockMutex(gContext.lock);
+
+	/* Not part of the GL heap so forward to libc's realloc */
+	return libc_realloc(address, size);
 }
