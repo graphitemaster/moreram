@@ -121,7 +121,7 @@ static void moreram_ctor(void) {
 	pglGetIntegerv(GL_NUM_EXTENSIONS, &extensions);
 	for (GLint i = 0; i < extensions; i++) {
 		const GLubyte *extension = pglGetStringi(GL_EXTENSIONS, i);
-		if (strcmp((const char *)extensions, "AMD_pinned_memory"))
+		if (strcmp((const char *)extension, "AMD_pinned_memory"))
 			continue;
 		/* We support AMDs pinned memory extension - change backing type */
 		gContext.backing = GL_EXTERNAL_VIRTUAL_MEMORY_BUFFER_AMD;
