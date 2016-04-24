@@ -5,6 +5,7 @@ to an additional 4GB of system RAM.
 
 To use:
 ```
+$ sysctl -w vm.overcommit_memory=2
 $ LD_PRELOAD=moreram.so ./app
 ```
 
@@ -25,6 +26,10 @@ wastes memory.
 This will work on embedded better than it will on Desktops, where persistently
 mapped buffers actually do reference video memory. As for desktop, your best
 best is a modern NV graphic card.
+
+The logic for using GPU memory is only triggered when malloc/calloc/realloc
+fail. On systems with overcommit, this will never be the case. To make
+use of this overcommit *must be disabled*
 
 # TODO
 
