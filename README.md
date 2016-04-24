@@ -25,17 +25,13 @@ wastes memory.
 
 This will work on embedded better than it will on Desktops, where persistently
 mapped buffers actually do reference video memory. As for desktop, your best
-best is a modern NV graphic card.
+best is a modern NV graphic card or an AMD GPU which supports GL_AMD_pinned_memory.
 
 The logic for using GPU memory is only triggered when malloc/calloc/realloc
 fail. On systems with overcommit, this will never be the case. To make
 use of this overcommit *must be disabled*
 
 Oh yeah, and it's thread safe!
-
-# TODO
-
-* Try AMD_pinned_memory for AMD GPUs
 
 # Dependencies
 Unfortunately for this to work you need a working X server as a GL context

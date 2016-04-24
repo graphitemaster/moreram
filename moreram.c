@@ -7,6 +7,11 @@
 #include <SDL_opengl.h>
 #include <SDL_mutex.h>
 
+/* GL_AMD_pinned_memory */
+#ifndef GL_EXTERNAL_VIRTUAL_MEMORY_BUFFER_AMD
+#define GL_EXTERNAL_VIRTUAL_MEMORY_BUFFER_AMD 0x9160
+#endif
+
 static void *(*libc_malloc)(size_t);
 static void *(*libc_realloc)(void *, size_t);
 static void *(*libc_calloc)(size_t, size_t);
@@ -19,6 +24,8 @@ static void (*pglBindBuffer)(GLenum, GLuint);
 static void (*pglBufferStorage)(GLenum, GLsizeiptr, const GLvoid *, GLbitfield);
 static GLvoid *(*pglMapBuffer)(GLenum, GLenum);
 static GLboolean (*pglUnmapBuffer)(GLenum);
+static void (*pglGetIntegerv)(GLenum, GLint *);
+static const GLubyte *(*pglGetStringi)(GLenum, GLint);
 
 struct node {
 	void *address;
@@ -36,6 +43,7 @@ static struct {
 	unsigned int *bitset;
 	struct node *head;
 	struct node *tail;
+	int backing;
 } gContext;
 
 /* 16MB of GLuint handles - 0.5MB bitset */
@@ -90,6 +98,8 @@ static void moreram_ctor(void) {
 	*(void **)&pglBufferStorage = SDL_GL_GetProcAddress("glBufferStorage");
 	*(void **)&pglMapBuffer = SDL_GL_GetProcAddress("glMapBuffer");
 	*(void **)&pglUnmapBuffer = SDL_GL_GetProcAddress("glUnmapBuffer");
+	*(void **)&pglGetIntegerv = SDL_GL_GetProcAddress("glGetIntegerv");
+	*(void **)&pglGetStringi = SDL_GL_GetProcAddress("glGetStringi");
 
 	/* Ensure we have some handles available to do mappings with since
 	 * glGenBuffers uses system-wide malloc which will be running out
@@ -108,6 +118,21 @@ static void moreram_ctor(void) {
 	/* Set all those bits to zero */
 	memset(gContext.bitset, 0, BITSET);
 
+	/* Standard backing buffer type */
+	gContext.backing = GL_ARRAY_BUFFER;
+
+	/* Check if we haave GL_AMD_pinned_memory extension */
+	GLint extensions = 0;
+	pglGetIntegerv(GL_NUM_EXTENSIONS, &extensions);
+	for (GLint i = 0; i < extensions; i++) {
+		const GLubyte *extension = pglGetStringi(GL_EXTENSIONS, i);
+		if (strcmp((const char *)extensions, "AMD_pinned_memory"))
+			continue;
+		/* We support AMDs pinned memory extension - change backing type */
+		gContext.backing = GL_EXTERNAL_VIRTUAL_MEMORY_BUFFER_AMD;
+		break;
+	}
+
 	SDL_AtomicIncRef(&gContext.instances);
 }
 
@@ -117,7 +142,7 @@ static void moreram_dtor(void) {
 		/* Unmap any remaining buffers */
 		SDL_LockMutex(gContext.lock);
 		for (struct node *n = gContext.head; n; ) {
-			pglBindBuffer(GL_ARRAY_BUFFER, gContext.handles[n->bit]);
+			pglBindBuffer(gContext.backing, gContext.handles[n->bit]);
 			/* The linked list nodes themselves are represented by the
 			 * memory obtained with glMapBuffer. We need to load the
 			 * address of the next node before we unmap the buffer. The
@@ -127,7 +152,7 @@ static void moreram_dtor(void) {
 			 */
 			struct node *next = n->next;
 			SDL_CompilerBarrier();
-			pglUnmapBuffer(GL_ARRAY_BUFFER);
+			pglUnmapBuffer(gContext.backing);
 			SDL_CompilerBarrier();
 			n = next;
 		}
@@ -175,11 +200,11 @@ void *malloc(size_t bytes) {
 
 	size_t bit = i*8+j;
 	GLuint handle = gContext.handles[bit];
-	pglBindBuffer(GL_ARRAY_BUFFER, handle);
-	pglBufferStorage(GL_ARRAY_BUFFER, bytes, NULL, GL_MAP_COHERENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
+	pglBindBuffer(gContext.backing, handle);
+	pglBufferStorage(gContext.backing, bytes, NULL, GL_MAP_COHERENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	/* Get the memory from OpenGL */
-	struct node *node = pglMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+	struct node *node = pglMapBuffer(gContext.backing, GL_READ_WRITE);
 	if (!node) {
 		/* Can't map the memory - definitely out of it! */
 		errno = ENOMEM;
@@ -216,7 +241,7 @@ void free(void *address) {
 			continue;
 
 		/* Bind the current handle before unlinking it */
-		pglBindBuffer(GL_ARRAY_BUFFER, gContext.handles[n->bit]);
+		pglBindBuffer(gContext.backing, gContext.handles[n->bit]);
 
 		/* Unlink it from the linked list */
 		if (n == gContext.head && n == gContext.tail) {
@@ -245,7 +270,7 @@ void free(void *address) {
 		SDL_CompilerBarrier();
 
 		/* Unmap the memory it references */
-		pglUnmapBuffer(GL_ARRAY_BUFFER);
+		pglUnmapBuffer(gContext.backing);
 
 		SDL_UnlockMutex(gContext.lock);
 		return;
@@ -283,7 +308,7 @@ void *realloc(void *address, size_t size) {
 		SDL_LockMutex(gContext.lock);
 
 		/* Bind the current handle before unlinking it */
-		pglBindBuffer(GL_ARRAY_BUFFER, gContext.handles[n->bit]);
+		pglBindBuffer(gContext.backing, gContext.handles[n->bit]);
 
 		/* Unlink it from the linked list */
 		if (n == gContext.head && n == gContext.tail) {
@@ -315,7 +340,7 @@ void *realloc(void *address, size_t size) {
 		SDL_CompilerBarrier();
 
 		/* Unmap the memory it references */
-		pglUnmapBuffer(GL_ARRAY_BUFFER);
+		pglUnmapBuffer(gContext.backing);
 
 		SDL_UnlockMutex(gContext.lock);
 		return resize;
