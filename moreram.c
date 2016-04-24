@@ -253,11 +253,24 @@ void free(void *address) {
 }
 
 void *realloc(void *address, size_t size) {
+	/* Consistency with glibc realloc */
+	if (size == 0) {
+		free(address);
+		return NULL;
+	}
+
 	/* Walk the entire GL heap to see if this pointer exists in there */
 	SDL_LockMutex(gContext.lock);
 	for (struct node *n = gContext.head; n; n = n->next) {
 		if (n->address != address)
 			continue;
+
+		/* No need to resize in this case */
+		if (n->size >= size) {
+			n->size = size;
+			SDL_UnlockMutex(gContext.lock);
+			return address;
+		}
 
 		/* Requests some memory for the resize */
 		SDL_UnlockMutex(gContext.lock);
