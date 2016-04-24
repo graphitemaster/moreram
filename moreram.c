@@ -224,11 +224,18 @@ void free(void *address) {
 			prev->next = next;
 		}
 
+		/* Mark the memory as being available again in the bitset */
+		gContext.bitset[n->bit / 8] &= ~(1 << (n->bit % 8));
+
+		/* The linked list structure is maintained by the memory obtained
+		 * from GL. To prevent the compiler from reordering the read of
+		 * n->bit above below this unmap call we use a compiler barrier
+		 * here. */
+		SDL_CompilerBarrier();
+
 		/* Unmap the memory it references */
 		pglUnmapBuffer(GL_ARRAY_BUFFER);
 
-		/* Mark the memory as being available again in the bitset */
-		gContext.bitset[n->bit / 8] &= ~(1 << (n->bit % 8));
 		SDL_UnlockMutex(gContext.lock);
 		return;
 	}
