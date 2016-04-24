@@ -133,7 +133,7 @@ static void moreram_ctor(void) {
 
 __attribute__((destructor))
 static void moreram_dtor(void) {
-	if (SDL_AtomicGet(&gContext.instances) == 1) {
+	if (SDL_AtomicCAS(&gContext.instances, 1, 0) == 1) {
 		/* Unmap any remaining buffers */
 		SDL_LockMutex(gContext.lock);
 		for (struct node *n = gContext.head; n; ) {
@@ -162,9 +162,10 @@ static void moreram_dtor(void) {
 		SDL_DestroyMutex(gContext.lock);
 		/* Shutdown SDL */
 		SDL_Quit();
+	} else {
+		/* One less instance */
+		SDL_AtomicDecRef(&gContext.instances);
 	}
-	/* One less instance */
-	SDL_AtomicDecRef(&gContext.instances);
 }
 
 void *malloc(size_t bytes) {
