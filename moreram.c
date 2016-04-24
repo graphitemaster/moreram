@@ -181,7 +181,7 @@ void *malloc(size_t bytes) {
 	node->bit = bit;
 
 	/* Mark the handle as being used */
-	gContext.handles[bit / 8] |= (1 << (bit % 8));
+	gContext.bitset[bit / 8] |= (1 << (bit % 8));
 
 	/* Maintain the linked list structure */
 	if (gContext.tail) {
