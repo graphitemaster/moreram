@@ -166,7 +166,7 @@ void *malloc(size_t bytes) {
 	size_t bit = i*8+j;
 	GLuint handle = gContext.handles[bit];
 	pglBindBuffer(GL_ARRAY_BUFFER, handle);
-	pglBufferStorage(GL_ARRAY_BUFFER, bytes, NULL, GL_MAP_COHERENT_BIT | GL_MAP_WRITE_BIT | GL_MAP_WRITE_BIT);
+	pglBufferStorage(GL_ARRAY_BUFFER, bytes, NULL, GL_MAP_COHERENT_BIT | GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	/* Get the memory from OpenGL */
 	struct node *node = pglMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
