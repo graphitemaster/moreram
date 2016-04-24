@@ -50,8 +50,7 @@ static void moreram_ctor(void) {
 	if (SDL_AtomicGet(&gContext.instances) != 0) {
 		/* An additional instance */
 		SDL_AtomicIncRef(&gContext.instances);
-		if (gContext.lock)
-			SDL_UnlockMutex(gContext.lock);
+		SDL_UnlockMutex(gContext.lock);
 		return;
 	}
 
