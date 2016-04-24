@@ -3,6 +3,11 @@
 More Ram is a system-wide malloc replacement which allows you to gain up
 to an additional 4GB of system RAM.
 
+To use:
+```
+$ LD_PRELOAD=moreram.so ./app
+```
+
 # How it works
 
 More Ram exploits the video memory using OpenGL to unlock that memory so
