@@ -230,6 +230,7 @@ void *malloc(size_t bytes) {
 }
 
 void free(void *address) {
+	if (!address) return;
 	/* Walk the entire GL heap to see if this pointer exists in there */
 	SDL_LockMutex(gContext.lock);
 	for (struct node *n = gContext.head; n; n = n->next) {
