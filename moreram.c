@@ -54,6 +54,7 @@ __attribute__((constructor))
 static void moreram_ctor(void) {
 	if (SDL_AtomicCAS(&gContext.instances, 0, 1) != 0) {
 		/* Prevent initializing it more than once */
+		SDL_AtomicIncRef(&gContext.instances);
 		return;
 	}
 
