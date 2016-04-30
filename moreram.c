@@ -350,22 +350,25 @@ void *realloc(void *address, size_t size) {
 }
 
 void *calloc(size_t m, size_t n) {
+	/* Check for m*n overflow */
 	if (n && m > (size_t)-1/n) {
 		errno = ENOMEM;
 		return 0;
 	}
+
 	void *attempt = libc_calloc(m, n);
 	if (attempt)
 		return attempt;
-	
+
 	void *ours = malloc(m*n);
 	if (ours) {
-		// don't spuriously write zeros to words of memory if they're already zero;
-		// this reduces the amount of page-faults related to swapping in fresh pages
-		// when the GPUs IOMMU hands down zero-pages
+		/* don't spuriously write zeros to words of memory if they're already zero;
+		 * this reduces the amount of page-faults related to swapping in fresh pages
+		 * when the GPUs IOMMU hands down zero-pages. */
 		size_t *z;
 		n = (n + sizeof *z - 1)/sizeof *z;
-		for (size_t *z = ours; n; n--, z++) if (*z) *z=0;
+		for (size_t *z = ours; n; n--, z++) if (*z) *z = 0;
 	}
+
 	return ours;
 }
